@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Draw the Perfect Triangle</title>
+		<style>
+			body {
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				height: 100vh;
+				margin: 0;
+				text-align: center;
+			}
+			#gameContainer {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				position: relative;
+				height: 100%;
+			}
+			#gameInfo {
+				position: absolute;
+				top: 0;
+			}
+			#canvas {
+				margin-top: 250px;
+				border: 1px solid black;
+				max-width: 90vw;
+				max-height: 90vh;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="gameContainer">
+			<div id="gameInfo">
+				<div id="timer">Time left: 10s</div>
+				<div id="score"></div>
+				<button id="drawPerfectTriangle">Draw Perfect Triangle</button>
+				<div id="analysis"></div>
+			</div>
+			<canvas id="canvas"></canvas>
+		</div>
+
+		<script>
+			const canvas = document.getElementById("canvas")
+			canvas.width = window.innerWidth - window.innerWidth * 0.66
+			canvas.height = window.innerHeight - window.innerHeight * 0.66
+			const ctx = canvas.getContext("2d")
+			const timerDisplay = document.getElementById("timer")
+			const scoreDisplay = document.getElementById("score")
+			const analysisDisplay = document.getElementById("analysis")
+			const perfectTriangleButton = document.getElementById("drawPerfectTriangle")
+			let drawing = false
+			let timer = null
+			let timeLeft = 10
+			let points = []
+
+			window.addEventListener("resize", () => {
+				canvas.width = canvas.offsetWidth
+				canvas.height = canvas.offsetHeight
+			})
+
+			canvas.addEventListener("mousedown", (e) => {
+				drawing = true
+				points = []
+				startTimer()
+				const rect = canvas.getBoundingClientRect()
+				const x = e.clientX - rect.left
+				const y = e.clientY - rect.top
+				points.push({ x, y })
+			})
+
+			canvas.addEventListener("mousemove", (e) => {
+				if (drawing) {
+					const rect = canvas.getBoundingClientRect()
+					const x = e.clientX - rect.left
+					const y = e.clientY - rect.top
+					points.push({ x, y })
+					draw()
+				}
+			})
+
+			canvas.addEventListener("mouseup", () => {
+				if (drawing) {
+					drawing = false
+					calculateAndDisplayScore()
+				}
+			})
+
+			perfectTriangleButton.addEventListener("click", drawPerfectTriangle)
+
+			function startTimer() {
+				clearInterval(timer)
+				timeLeft = 10
+				timerDisplay.textContent = `Time left: ${timeLeft}s`
+				timer = setInterval(() => {
+					timeLeft--
+					timerDisplay.textContent = `Time left: ${timeLeft}s`
+					if (timeLeft === 0) {
+						clearInterval(timer)
+						drawing = false
+						calculateAndDisplayScore()
+					}
+				}, 1000)
+			}
+
+			function draw() {
+				ctx.clearRect(0, 0, canvas.width, canvas.height)
+				ctx.beginPath()
+				ctx.moveTo(points[0].x, points[0].y)
+				points.forEach((point) => ctx.lineTo(point.x, point.y))
+				ctx.stroke()
+			}
+
+			function calculateAndDisplayScore() {
+				if (points.length > 2) {
+					clearInterval(timer)
+					const triangle = approximateTriangle(points)
+					const score = scoreTriangle(triangle)
+					scoreDisplay.textContent = `Score: ${score.toFixed(2)}%`
+					displayAnalysis(triangle)
+				}
+			}
+
+			function approximateTriangle(drawnPoints) {
+				const startPoint = drawnPoints[0]
+				const midPoint = drawnPoints[Math.floor(drawnPoints.length / 2)]
+				const endPoint = drawnPoints[drawnPoints.length - 1]
+				return [startPoint, midPoint, endPoint]
+			}
+
+			function scoreTriangle(triangle) {
+				const sides = triangle.map((p, i, arr) =>
+					Math.hypot(p.x - arr[(i + 1) % arr.length].x, p.y - arr[(i + 1) % arr.length].y),
+				)
+				const angles = calculateAngles(triangle, sides)
+				const sideScore = evaluateSides(sides)
+				const angleScore = evaluateAngles(angles)
+				return (sideScore + angleScore) / 2
+			}
+
+			function displayAnalysis(triangle) {
+				const sides = triangle.map((p, i, arr) =>
+					Math.hypot(p.x - arr[(i + 1) % arr.length].x, p.y - arr[(i + 1) % arr.length].y),
+				)
+				const angles = calculateAngles(triangle, sides)
+				analysisDisplay.innerHTML = "Triangle Analysis:<ul>"
+				sides.forEach((side, i) => {
+					analysisDisplay.innerHTML += `<li>Side ${i + 1}: ${side.toFixed(2)} units</li>`
+				})
+				angles.forEach((angle, i) => {
+					analysisDisplay.innerHTML += `<li>Angle ${i + 1}: ${angle.toFixed(2)} degrees</li>`
+				})
+				analysisDisplay.innerHTML += "</ul>"
+			}
+
+			function calculateAngles(triangle, sides) {
+				const [a, b, c] = sides
+				const angleA = Math.acos((b * b + c * c - a * a) / (2 * b * c)) * (180 / Math.PI)
+				const angleB = Math.acos((a * a + c * c - b * b) / (2 * a * c)) * (180 / Math.PI)
+				const angleC = 180 - angleA - angleB
+				return [angleA, angleB, angleC]
+			}
+
+			function evaluateSides(sides) {
+				const idealSide = sides.reduce((a, b) => a + b, 0) / 3
+				const deviation = sides.reduce((acc, s) => acc + Math.abs(s - idealSide), 0)
+				const maxDeviation = idealSide * 3 // Maximum deviation is when all sides are 0 or double the ideal side
+				return Math.max(0, 1 - deviation / maxDeviation) * 100 // Ensuring score is not negative
+			}
+
+			function evaluateAngles(angles) {
+				const idealAngle = 60 // Ideal angle for an equilateral triangle
+				const deviation = angles.reduce((acc, a) => acc + Math.abs(a - idealAngle), 0)
+				const maxDeviation = 180 // Maximum deviation when one angle is 180 and others are 0
+				return Math.max(0, 1 - deviation / maxDeviation) * 100 // Ensuring score is not negative
+			}
+
+			function drawPerfectTriangle() {
+				const centerX = canvas.width / 2
+				const centerY = canvas.height / 2
+				const size = Math.min(canvas.width, canvas.height) / 3
+				const height = (size * Math.sqrt(3)) / 2
+
+				ctx.clearRect(0, 0, canvas.width, canvas.height)
+				ctx.beginPath()
+				ctx.moveTo(centerX, centerY - height / 2)
+				ctx.lineTo(centerX - size / 2, centerY + height / 2)
+				ctx.lineTo(centerX + size / 2, centerY + height / 2)
+				ctx.closePath()
+				ctx.stroke()
+
+				// Simulate points for a perfect triangle
+				const perfectTriangle = [
+					{ x: centerX, y: centerY - height / 2 },
+					{ x: centerX - size / 2, y: centerY + height / 2 },
+					{ x: centerX + size / 2, y: centerY + height / 2 },
+				]
+
+				// Calculate and display score and analysis for the perfect triangle
+				const score = scoreTriangle(perfectTriangle)
+				scoreDisplay.textContent = `Score: ${score.toFixed(2)}%`
+				displayAnalysis(perfectTriangle)
+				clearTimeout(timer)
+			}
+		</script>
+	</body>
+</html>
